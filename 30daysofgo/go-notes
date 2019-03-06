@@ -1,0 +1,11 @@
+In Go, Methods are functions with receiver arguments
+type a b is the syntax for typedefining a as a new type with an underlying type as b
+One can only declare a method on a receiver type which is defined in the same package as the method itself.
+Receiver can be a reference/pointer type or a value type. When a value type receiver is used to modify the fields of the receiver, it internally gets a copy
+So the original receiver's fields are not affected.
+
+Interfaces
+
+Under the hood interfaces can be thought of as a tuple of the underlying value and it's type.
+
+Wherever a method of an interface value is needed, the go runtime replaces it with a method invocation of the same name on the underlying type binding it with the underlying value.
