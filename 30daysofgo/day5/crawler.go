@@ -18,7 +18,7 @@ type SyncUrlMap struct {
 
 var visited_urls_map SyncUrlMap
 
-func IsUrlAlreadyVisisted(url string) bool {
+func IsUrlAlreadyVisited(url string) bool {
 	visited_urls_map.m.Lock()
 	defer visited_urls_map.m.Unlock()
 	if _, ok := visited_urls_map.visited_urls[url]; !ok {
@@ -36,31 +36,45 @@ func CacheVisitedUrl(url string) {
 
 // Crawl uses fetcher to recursively crawl
 // pages starting with url, to a maximum of depth.
-func Crawl(url string, depth int, fetcher Fetcher) {
+func Crawl(url string, depth int, fetcher Fetcher, ch chan int) {
 	// TODO: Fetch URLs in parallel.
 	// TODO: Don't fetch the same URL twice.
 	// This implementation doesn't do either:
 	if depth <= 0 {
+		ch <- 1
 		return
 	}
+	CacheVisitedUrl(url)
 	body, urls, err := fetcher.Fetch(url)
 	if err != nil {
 		fmt.Println(err)
+		ch <- 1
 		return
 	}
+	channels := make([]chan int, 0)
 	fmt.Printf("found: %s %q\n", url, body)
 	for _, u := range urls {
-		if !IsUrlAlreadyVisisted(url) {
-			go Crawl(u, depth-1, fetcher)
-			CacheVisitedUrl(u)
+		if IsUrlAlreadyVisited(u) == false {
+			urlch := make(chan int)
+			channels = append(channels, urlch)
+			go Crawl(u, depth-1, fetcher, urlch)
 		}
 	}
+	for _, retch := range channels {
+		<-retch
+	}
+	ch <- 1
 	return
 }
 
 func main() {
 	visited_urls_map = SyncUrlMap{visited_urls: make(map[string]bool)}
-	Crawl("https://golang.org/", 4, fetcher)
+	ch := make(chan int)
+	go Crawl("https://golang.org/", 4, fetcher, ch)
+	select {
+	case <-ch:
+		fmt.Println("Done crawling")
+	}
 }
 
 // fakeFetcher is Fetcher that returns canned results.
